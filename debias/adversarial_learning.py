@@ -9,129 +9,31 @@ Authors: Andrew Zaldivar, Ben Hutchinson, Blake Lemoine, Brian Zhang, Margaret M
 
 This notebook is a guide to the paper ([archiv](https://arxiv.org/pdf/1801.07593.pdf))
 
-> ```Brian Zhang, Blake Lemoine and Margaret Mitchell. Mitigating Unwanted Biases with Adversarial Learning. AAAI Conference on AI, Ethics and Society, 2018.```
-
-## Intro statement of problem
-
-Embeddings are a powerful mechanism for projecting a discrete variable (e.g. words, locales, urls) into a multi-dimensional real valued space.  Several strong methods have been developed for learning embeddings.  One example is the [Skipgram](http://www.cs.brandeis.edu/~marc/misc/proceedings/lrec-2006/pdf/357_pdf.pdf) algorithm.  In that algorithm the surrounding context is used to predict the presence of a word.  Unfortunately, much real world textual data has subtle bias that machine learning algorithms will implicitly include in the embeddings created from that data.  This bias can be illustrated by performing a word analogy task using the learned embeddings.
-
-It is worth noting that the usages of terms like _fair_ and _bias_ are used in this notebook in the context of a particular definition of fairness sometimes referred to as "Demographic Parity" or "Equality of Outcomes" ([Hardt et. al 2016](http://papers.nips.cc/paper/6373-equality-of-opportunity-in-supervised-learning)).  This definition of fairness effectively says that any relationship at all between a variable of interest and a _protected variable_ is an example of unwanted bias.  Other definitions of fairness such as "Equality of Odds" can be employed when there is believed to be some form of proper relationship between the variable of interest and the protected variable.  However, all uses of _fair_ and _bias_ here should be interpreted in the context of "Demographic Parity".
-
 First, we'll import all the packages that we'll need.
 """
 
-#!pip install -U gensim~=3.2.0
 import gensim
+from gensim.models import Word2Vec, KeyedVectors
 import gzip
 import numpy as np
 import os
 import pandas as pd
-#!pip install --upgrade-strategy=only-if-needed tensorflow~=1.6.0rc0
 import tensorflow as tf
 
-"""First let's copy the required data files from Google Cloud Storage to a local directory.
+print("checkpoint 1 - imports complete")
 
-To do this we'll first need to authenticate to Google Cloud Storage. Executing the following cell will generate a link which you'll need to follow to get a verification code.
-"""
+WORD2VEC_FILE = os.path.join("../data", "GoogleNews-vectors-negative300.bin.gz")
+ANALOGIES_FILE = os.path.join("../data", "questions-words.txt")
 
-from google.colab import auth
-auth.authenticate_user()
+# Initialize the embeddings client if this hasn't been done yet.
+# For the efficiency of this notebook we just load the first 2M words, and don't
+# re-initialize the client if it already exists. You could of course filter the
+# word list in other ways.
+if not 'client' in vars():
+  print ("Loading word embeddings from %s" % WORD2VEC_FILE)
+  client = KeyedVectors.load_word2vec_format(WORD2VEC_FILE, binary=True, limit=2000000)
 
-"""Now we'll sync the data for the colab to a tmp directory from Google Cloud Storage."""
-
-project_id = 'mledu-fairness'
-#!gcloud config set project {project_id}
-
-gcs_bucket_name = 'mledu-fairness/colabs/debias_word_embeddings'
-local_dir_name = '/tmp/debias_word_embeddings'
-if not os.path.exists(local_dir_name):
-  print("creating dir %s" % local_dir_name)
-  #!mkdir {local_dir_name}
-  
-#!gsutil rsync gs://{gcs_bucket_name} {local_dir_name}
-
-#!ls -al {local_dir_name}  
-
-WORD2VEC_FILE = os.path.join(local_dir_name, "GoogleNews-vectors-negative300.bin.gz")
-ANALOGIES_FILE = os.path.join(local_dir_name, "questions-words.txt")
-
-def load_word2vec_format(f, max_num_words=None):
-  """Loads word2vec data from a file handle.
-
-  Similar to gensim.models.keyedvectors.KeyedVectors.load_word2vec_format
-  but takes a file handle as input rather than a filename. This lets us use
-  GFile. Also only accepts binary files.
-
-  Args:
-    f: file handle
-    max_num_words: number of words to load. If None, load all.
-
-  Returns:
-    Word2vec data as keyedvectors.EuclideanKeyedVectors.
-  """
-  header = f.readline()
-  vocab_size, vector_size = (
-      int(x) for x in header.rstrip().split())  # throws for invalid file format
-  print ("vector_size =  %d" % vector_size)
-  result = gensim.models.keyedvectors.EuclideanKeyedVectors()
-  num_words = 0
-  result.vector_size = vector_size
-  result.syn0 = np.zeros((vocab_size, vector_size), dtype=np.float32)
-  
-  def add_word(word, weights):
-    word_id = len(result.vocab)
-    if word in result.vocab:
-      print("duplicate word '%s', ignoring all but first", word)
-      return
-    result.vocab[word] = gensim.models.keyedvectors.Vocab(
-        index=word_id, count=vocab_size - word_id)
-    result.syn0[word_id] = weights
-    result.index2word.append(word)
-
-  if max_num_words and max_num_words < vocab_size:
-    num_embeddings = max_num_words
-  else:
-    num_embeddings = vocab_size
-  print ("Loading %d embeddings" % num_embeddings)
-  
-  binary_len = np.dtype(np.float32).itemsize * vector_size
-  for _ in xrange(vocab_size):
-    # mixed text and binary: read text first, then binary
-    word = []
-    while True:
-      ch = f.read(1)
-      if ch == b' ':
-        break
-      if ch == b'':
-        raise EOFError("unexpected end of input; is count incorrect or file otherwise damaged?")
-      if ch != b'\n':  # ignore newlines in front of words (some binary files have)
-        word.append(ch)
-    word = gensim.utils.to_unicode(b''.join(word), encoding='utf-8', errors='strict')
-    weights = np.frombuffer(f.read(binary_len), dtype=np.float32)
-    add_word(word, weights)
-    num_words = num_words + 1
-    if max_num_words and num_words == max_num_words:
-      break
-  if result.syn0.shape[0] != len(result.vocab):
-    print(
-        "duplicate words detected, shrinking matrix size from %i to %i",
-        result.syn0.shape[0], len(result.vocab))
-  result.syn0 = np.ascontiguousarray(result.syn0[:len(result.vocab)])
-  assert (len(result.vocab), vector_size) == result.syn0.shape
-
-  print("loaded %s matrix", result.syn0.shape)
-  return result
-
-# Commented out IPython magic to ensure Python compatibility.
-# %%time
-# # Initialize the embeddings client if this hasn't been done yet.
-# # For the efficiency of this notebook we just load the first 2M words, and don't
-# # re-initialize the client if it already exists. You could of course filter the
-# # word list in other ways.
-# if not 'client' in vars():
-#   print "Loading word embeddings from %s" % WORD2VEC_FILE
-#   with gzip.GzipFile(fileobj=open(WORD2VEC_FILE, 'r')) as f:
-#     client = load_word2vec_format(f, max_num_words=2000000)
+print("checkpoint 2 - word2vec loaded")
 
 """The following blocks load a data file with analogy training examples and displays some of them as examples.  By changing the indices selected in the final block you can change which analogies from the training set are being displayed."""
 
@@ -141,9 +43,9 @@ def print_knn(client, v, k):
       v.flatten().astype(float), topn=k):
     print ("%s : score=%f" % (neighbor, score))
 
-"""Let's take a look at the analogies that the model generates for *man*:*woman*::*boss*:$\underline{\quad}$.
-Try changing ``"boss"`` to ``"friend"`` to see further examples of problematic analogies.
-"""
+#Lets take a look at the analogies that the model generates for *man*:*woman*::*boss*:$\underline{\quad}$.
+#Try changing ``"boss"`` to ``"friend"`` to see further examples of problematic analogies.
+
 
 # Use a word embedding to compute an analogy
 # Edit the parameters below to get different analogies
@@ -156,6 +58,8 @@ in_arr = []
 for i, word in enumerate((A, B, C)):
   in_arr.append(client.word_vec(word))
 in_arr = np.array([in_arr])
+
+print("checkpoint 3")
 
 print_knn(client, -in_arr[0, 0, :] + in_arr[0, 1, :] + in_arr[0, 2, :],
           NUM_ANALOGIES)
@@ -281,7 +185,10 @@ def find_gender_direction(embed,
 gender_direction = find_gender_direction(embed, indices)
 print ("gender direction: %s" % str(gender_direction.flatten()))
 
-"""Once you have the first principal component of the embedding differences, you can start projecting the embeddings of words onto it.  That projection is roughly the degree to which a word is relevant to the latent protected variable defined by the first principle component of the word pairs given.  This projection can then be taken as the protected variable $Z$ which the adversary is attempting to predict on the basis of the predicted value of $Y$.  The code below illustrates how to construct a function which computes $Z$ from $X$ in this way.
+"""Once you have the first principal component of the embedding differences, you can start projecting the embeddings of words onto it.  
+That projection is roughly the degree to which a word is relevant to the latent protected variable defined by the first principle 
+component of the word pairs given.  This projection can then be taken as the protected variable $Z$ which the adversary is attempting 
+to predict on the basis of the predicted value of $Y$.  The code below illustrates how to construct a function which computes $Z$ from $X$ in this way.
 
 Try editing the WORD param in the next cell to see the projection of other words onto the gender direction.
 """
@@ -578,5 +485,12 @@ print_knn(client, sess.run(pred, feed_dict={data_p: in_arr}),
 
 """##Conclusion
 
-The method demonstrated here helps to reduce the amount of bias in word embeddings and, although not demonstrated here, generalizes quite well to other domains and tasks.  By trying to hide a protected variable from an adversary, a machine learned system can reduce the amount of biased information about that protected variable implicit in the system.  In addition to the specific method demonstrated here there are many variations on this theme which can be used to achieve different degrees and types of debiasing.  For example, you could debias with respect to more than one principle component of the protected variable by having the adverary predict multiple projections.  Many other elaborations on this basic idea are possible and hopefully this relatively simple system can serve as the basis for more complex and sophisticated systems capable of achieving subtle types of bias mitigation in many applications.
+The method demonstrated here helps to reduce the amount of bias in word embeddings and, although not demonstrated here,
+ generalizes quite well to other domains and tasks.  By trying to hide a protected variable from an adversary, a machine
+  learned system can reduce the amount of biased information about that protected variable implicit in the system.  In 
+  addition to the specific method demonstrated here there are many variations on this theme which can be used to achieve
+   different degrees and types of debiasing.  For example, you could debias with respect to more than one principle 
+   component of the protected variable by having the adverary predict multiple projections.  Many other elaborations on 
+   this basic idea are possible and hopefully this relatively simple system can serve as the basis for more complex and 
+   sophisticated systems capable of achieving subtle types of bias mitigation in many applications.
 """

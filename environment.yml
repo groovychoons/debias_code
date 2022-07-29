@@ -1,3 +1,11 @@
 name: debias
 dependencies:
   - python=3.8.10
+  - pip
+  - tensorflow-deps
+  - pip:
+    - tensorflow
+    - wget
+    - gensim
+    - pandas
+    - numpy

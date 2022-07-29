@@ -1,6 +1,6 @@
 # Debiasing the Internet
 
-Created by Zara Siddique for a as-of-yet nameless paper.
+Created by Zara Siddique for an as-of-yet nameless paper.
 
 
 ## Installation and setup

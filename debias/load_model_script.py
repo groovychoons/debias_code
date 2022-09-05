@@ -7,21 +7,6 @@ import os
 import gensim.downloader as api
 from gensim.models import KeyedVectors
 
-WORD2VEC_FILE = os.path.join("data", "GoogleNews-vectors-negative300.bin.gz")
-
-# Initialize the embeddings client if this hasn't been done yet.
-# For efficiency we just load the first 2M words, and don't re-initialize the
-# client if it already exists.
-
-
-def main():
-    print("Loading word embeddings from %s" % WORD2VEC_FILE)
-    client = KeyedVectors.load_word2vec_format(
-        WORD2VEC_FILE, binary=True, limit=2000000)
-    # client = api.load("glove-wiki-gigaword-50")
-    return client
-
-
 nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('wordnet')
@@ -59,6 +44,21 @@ def get_sent_tokens(sentence):
     sentence_split = sentence_joined.split(" ")
     return sentence_split
 
+# Tokenises a string and adds lowercase tokens to list
+# Adds phrases using underscore
+# Stops lemmatization of blacks and whites
+def get_sent_tokens_single(sentence):
+    list_tokens = []
+    sentence = sentence.lower()
+    list_tokens_sentence = nltk.tokenize.word_tokenize(sentence)
+    for token in list_tokens_sentence:
+        if token not in no_lemmatize:
+            list_tokens.append(lemmatizer.lemmatize(token))
+        else:
+            list_tokens.append(token)
+
+    return list_tokens
+
 # Removes punctuation from list of tokens
 def remove_punctuations(lst):
     new_lst = []
@@ -72,7 +72,7 @@ def remove_punctuations(lst):
     return new_lst
 
 
-def clean_article(data):
+def clean_article(data, phrasal):
     stopwords = set(nltk.corpus.stopwords.words('english'))
     stopwords.update(["", "ha", "said", "wa", "nt", "would", "also", "could"])
     not_stopwords = ["he", "she", "she's", "he's", "herself", "himself", "her", "his", "hers", "him"]
@@ -80,7 +80,11 @@ def clean_article(data):
     final_article = []
 
     for sentence in data:
-        sentence_tokens = get_sent_tokens(sentence)
+        sentence_tokens = []
+        if phrasal:
+            sentence_tokens = get_sent_tokens(sentence)
+        else:
+            sentence_tokens = get_sent_tokens_single(sentence)
         sentence_tokens = remove_punctuations(sentence_tokens)
         final_sentence = []
         for word in sentence_tokens:
@@ -92,23 +96,38 @@ def clean_article(data):
     return final_article
 
 
-def create_news_model():
+def create_news_model(phrasal):
+    print("Running script")
+
     rawdata = []
-    with open("./data/news.2010.en.shuffled.deduped") as infile:
+    with open("./data") as infile:
+        print("Data loaded")
         for line in infile:
             rawdata.append(line)
 
     print("No. of sentences: ", len(rawdata))
 
-    tokenized_articles = clean_article(rawdata)
+    tokenized_articles = clean_article(rawdata, phrasal)
     print("Articles tokenized")
+
     # train model
     model = Word2Vec(tokenized_articles)
     # summarize the loaded model
-    model.save("./data/word2vec2010.model")
-    model.save('./data/vectors2010.kv')
-
+    if not os.path.exists('models'):
+        print("Creating a models directory")
+        os.mkdir('models')
+    
+    if phrasal:
+        model.save("./models/word2vec_phrasal.model")
+        model.save('./models/vectors_phrasal.kv')
+    else:
+        model.save("./models/word2vec_single.model")
+        model.save('./models/vectors_single.kv')
 
 def load_news_model():
-    client = KeyedVectors.load("./data/vectors2010.kv")
+    client = KeyedVectors.load("./models/vectors_phrasal.kv")
     return client
+
+
+create_news_model(True)
+create_news_model(False)

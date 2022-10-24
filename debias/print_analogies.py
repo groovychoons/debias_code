@@ -11,7 +11,7 @@ displayed."""
 def print_knn(client, v, k):
   print ("%d closest neighbors to A-B+C:" % k)
   # USES GENSIM SIMILAR BY VECTOR
-  for neighbor, score in client.similar_by_vector(
+  for neighbor, score in client.wv.similar_by_vector(
       v.flatten().astype(float), topn=k):
     print ("%s : score=%f" % (neighbor, score))
 
@@ -20,20 +20,18 @@ def print_knn(client, v, k):
 # Try changing ``"boss"`` to ``"friend"`` to see further examples of 
 # problematic analogies.
 
-
-
 def main(client):
     # Use a word embedding to compute an analogy
     # Edit the parameters below to get different analogies
-    A = "he"
-    B = "she"
-    C = "doctor"
+    A = "white_man"
+    B = "white_woman"
+    C = "boss"
     NUM_ANALOGIES = 10
 
     in_arr = []
     # FOR WORD IN A B AND C, APPEND ITS VECTOR TO THE IN ARRAY
     for i, word in enumerate((A, B, C)):
-        in_arr.append(client.word_vec(word))
+        in_arr.append(client.wv.word_vec(word))
     
     in_arr = np.array([in_arr])
 

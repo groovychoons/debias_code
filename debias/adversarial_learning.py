@@ -10,11 +10,10 @@ displayed."""
 
 # PRINTS K NEAREST NEIGHBOURS
 
-
 def print_knn(client, v, k):
     print("%d closest neighbors to A-B+C:" % k)
     # USES GENSIM SIMILAR BY VECTOR
-    for neighbor, score in client.similar_by_vector(
+    for neighbor, score in client.wv.similar_by_vector(
             v.flatten().astype(float), topn=k):
         print("%s : score=%f" % (neighbor, score))
 
@@ -211,7 +210,7 @@ def filter_analogies(analogies,
         for word in analogy:
             if word not in index_map:
                 isInDict = False
-                print("at least one word missing for analogy: %s" % analogy)
+                # print("at least one word missing for analogy: %s" % analogy)
         if isInDict:
             filtered_analogies.append(list(map(index_map.get, analogy)))
     return filtered_analogies
@@ -261,7 +260,7 @@ def main(client, analogies, indices, embed, gender_direction):
   num_steps = 10000
   batch_size = 1000
 
-  embed_dim = 300
+  embed_dim = 100
   projection_dims = 1
 
   tf.compat.v1.disable_eager_execution()
@@ -304,11 +303,13 @@ def main(client, analogies, indices, embed, gender_direction):
   # Use a word embedding to compute an analogy
   in_arr = []
   for i, word in enumerate((A, B, C)):
-      in_arr.append(client.word_vec(word))
+      in_arr.append(client.wv.word_vec(word))
   in_arr = np.array([in_arr])
 
   print_knn(client, sess.run(pred, feed_dict={data_p: in_arr}),
             NUM_ANALOGIES)
+
+  return(client)
 
 """### Analogy generation using the embeddings with bias reduced by the adversarial model
 

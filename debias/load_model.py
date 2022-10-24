@@ -110,5 +110,5 @@ def create_news_model():
 
 
 def load_news_model():
-    client = KeyedVectors.load("./data/vectors2010.kv")
+    client = KeyedVectors.load("./models/vectors_phrasal.kv")
     return client

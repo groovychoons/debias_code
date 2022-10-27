@@ -31,8 +31,8 @@ def main3():
     print_analogies.main(client)
     analogies = load_analogies.main()
     indices, embed, gender_direction = find_space_kv.main(client, analogies)
-    new_client = adversarial_learning.main(client, analogies, indices, embed, gender_direction)
-    find_space_kv.race_scores(new_client, gender_direction, analogies)
+    # new_client = adversarial_learning.main(client, analogies, indices, embed, gender_direction)
+    # find_space_kv.race_scores(new_client, gender_direction, analogies)
 
 if __name__ == "__main__": 
 	main3()

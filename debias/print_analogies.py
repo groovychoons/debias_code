@@ -24,7 +24,7 @@ def main(client):
     # Use a word embedding to compute an analogy
     # Edit the parameters below to get different analogies
     A = "white_man"
-    B = "white_woman"
+    B = "black_woman"
     C = "boss"
     NUM_ANALOGIES = 10
 

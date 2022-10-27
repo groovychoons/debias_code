@@ -142,6 +142,33 @@ def race_scores(client, gender_direction, analogies):
     df.sort_values(by="race_score", inplace=True, ascending=False)
     print (df.word.head(10))
 
+def race_scores(client, race_direction, gender_direction, analogies):
+    """Let's now look at the words with the largest *negative* projection onto the race dimension."""
+    words = set()
+
+    words2 = list(client.wv.key_to_index.keys())
+    for a in occupations:
+        if a[0] in words2:
+            words.add(a[0])
+
+    df = pd.DataFrame(data={"word": list(words)})
+    df["race_score"] = df["word"].map(
+        lambda w: (client.wv.get_vector(w).dot(race_direction)))
+    df.sort_values(by="race_score", inplace=True)
+
+    df["gender_score"] = df["word"].map(
+        lambda w: (client.wv.get_vector(w).dot(gender_direction)))
+
+    df.sort_values(by="race_score", inplace=True)
+
+    print (df.head(10))
+    """Let's now look at the words with the largest *positive* projection onto the race dimension."""
+
+    df.sort_values(by="race_score", inplace=True, ascending=False)
+    print (df.head(10))
+    df.to_csv("./results.csv")
+
+
 def identity_occupations(client):
     """Let's now look at the words with the largest *negative* projection onto the gender dimension."""
     words = []
@@ -209,5 +236,5 @@ def main(client, analogies):
 
 
 
-    race_scores(client, gender_direction, analogies)
-    return indices, embed, gender_direction
+    race_scores(client, race_direction, gender_direction, analogies)
+    return indices, embed, race_direction

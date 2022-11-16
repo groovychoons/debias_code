@@ -1,3 +1,6 @@
 .DS_Store
 /data
 *.pyc
+/results
+*.csv
+/testset_models

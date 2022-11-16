@@ -50,24 +50,24 @@ def load_vectors(client, analogies):
 
     return np.array(vecs), index_map, words
 
-
-
-
         # ("white_man", "black_man"),
         # ("white_woman", "black_woman"),
         # ("white_teenager", "black_teenager"),
-        # ("white_women", "black_women"),
+        # ("white_student", "black_student"),
+        # ("white_people", "black_people"),
         # ("white_men", "black_men"),
+        # ("whites", "blacks"),
+        # ("white_women", "black_women"),
         # ("white_girl", "black_girl"),
         # ("white_boy", "black_boy"),
-        # ("white_student", "black_student"),
         # ("white_youth", "black_youth"),
         # ("white_family", "black_family"),
-        # ("white_people", "black_people"),
 
 def find_gender_direction(embed, indices, client):
     """Finds and returns a 'gender direction'."""
     pairs = [
+        ("white_woman", "white_man"),
+        ("black_woman", "black_man"),
         ("woman", "man"),
         ("her", "his"),
         ("she", "he"),
@@ -102,8 +102,11 @@ def find_race_direction(embed, indices, client):
         ("white_man", "black_man"),
         ("white_woman", "black_woman"),
         ("white_teenager", "black_teenager"),
-        ("white_student", "black_student"),
+        #("white_student", "black_student"),
         ("white_people", "black_people"),
+        ("caucasian", "african-american"),
+        #("white_men", "black_men"),
+        #("whites", "blacks"),
     ]
 
     # Creates a numpy array which is just n (no.of pairs) normalised vectors
@@ -118,31 +121,10 @@ def find_race_direction(embed, indices, client):
     m = np.cov(m.T)
     # eigenvalues and eigenvectors of M
     evals, evecs = np.linalg.eig(m)
-    # 
+    
     return _np_normalize(np.real(evecs[:, np.argmax(evals)]))
 
-
-def race_scores(client, gender_direction, analogies):
-    """Let's now look at the words with the largest *negative* projection onto the gender dimension."""
-    words = set()
-
-    words2 = list(client.wv.key_to_index.keys())
-    for a in occupations:
-        if a[0] in words2:
-            words.add(a[0])
-
-    df = pd.DataFrame(data={"word": list(words)})
-    df["race_score"] = df["word"].map(
-        lambda w: client.wv.get_vector(w).dot(gender_direction))
-    df.sort_values(by="race_score", inplace=True)
-    print (df.word.head(10))
-
-    """Let's now look at the words with the largest *positive* projection onto the gender dimension."""
-
-    df.sort_values(by="race_score", inplace=True, ascending=False)
-    print (df.word.head(10))
-
-def race_scores(client, race_direction, gender_direction, analogies):
+def race_scores(client, race_direction, gender_direction):
     """Let's now look at the words with the largest *negative* projection onto the race dimension."""
     words = set()
 
@@ -170,7 +152,7 @@ def race_scores(client, race_direction, gender_direction, analogies):
 
 
 def identity_occupations(client):
-    """Let's now look at the words with the largest *negative* projection onto the gender dimension."""
+    "Plain ol word similarity to different identities"
     words = []
 
     words2 = list(client.wv.key_to_index.keys())
@@ -201,14 +183,16 @@ def main(client, analogies):
     embed_dim = len(embed[0].flatten())
     print("word embedding dimension: %d" % embed_dim)
 
-
     # Using the embeddings, find the gender vector.
     gender_direction = find_gender_direction(embed, indices, client)
-    print("gender direction: %s" % str(gender_direction.flatten()))
+    #print("gender direction: %s" % str(gender_direction.flatten()))
 
     # Using the embeddings, find the race vector.
     race_direction = find_race_direction(embed, indices, client)
-    print("race direction: %s" % str(race_direction.flatten()))
+    #print("race direction: %s" % str(race_direction.flatten()))
+
+    race_scores(client, race_direction, gender_direction)
+    return indices, embed, gender_direction, race_direction
 
     """Once you have the first principal component of the embedding differences, you can start projecting the embeddings of words onto it.  
     That projection is roughly the degree to which a word is relevant to the latent protected variable defined by the first principle 
@@ -216,25 +200,17 @@ def main(client, analogies):
     to predict on the basis of the predicted value of $Y$.  The code below illustrates how to construct a function which computes $Z$ from $X$ in this way.
 
     Try editing the WORD param in the next cell to see the projection of other words onto the gender direction.
-    """
 
     WORD = "he"
-
     word_vec = client.wv.get_vector(WORD)
     print(word_vec.dot(gender_direction))
 
     WORD = "brick"
-
     word_vec = client.wv.get_vector(WORD)
     print(word_vec.dot(gender_direction))
-
 
     WORD = "she"
-
     word_vec = client.wv.get_vector(WORD)
     print(word_vec.dot(gender_direction))
 
-
-
-    race_scores(client, race_direction, gender_direction, analogies)
-    return indices, embed, race_direction
+    """

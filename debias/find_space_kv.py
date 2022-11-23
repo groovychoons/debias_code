@@ -84,8 +84,8 @@ def find_gender_direction(embed, indices, client):
     # Creates a numpy array which is just n (no.of pairs) normalised vectors
     # of he-she (or equivalent)
     m = []
-    for wf, wm in pairs:
-        m.append((_np_normalize(client.wv.get_vector(wf))) - (_np_normalize(client.wv.get_vector(wm))))
+    for wof, wom in pairs:
+        m.append((_np_normalize(client.wv.get_vector(wof))) - (_np_normalize(client.wv.get_vector(wom))))
     m = np.array(m)
 
     # the next three lines are just a PCA
@@ -95,6 +95,55 @@ def find_gender_direction(embed, indices, client):
     evals, evecs = np.linalg.eig(m)
     # 
     return _np_normalize(np.real(evecs[:, np.argmax(evals)]))
+
+wm = ["adam", "harry", "josh", "roger", "alan", "frank", "justin", "ryan", "andrew", "jack", "matthew", "stephen", "brad", "greg", "paul", " jonathan", "peter"]
+ww = ["amanda", "courtney", "heather", "melanie", "katie", "betsy", "kristin", "nancy", "stephanie", "ellen", "lauren", "colleen", "emily", "megan", "rachel"]
+bm = ["alonzo", "jamel", "theo", "alphonse", "jerome", "leroy", "torrance", "darnell", "lamar", "lionel", "tvree", "deion", "lamont", "malik", "terrence", "tyrone", "tavon", "marcellus", "wardell"]
+bw = ["nichelle", "shereen", "ebony", "latisha", "shaniqua", "jasmine", "tanisha", "tia", "lakisha", "latoya", "yolanda", "malika", "yvette"]
+
+wm1 = ['adam', 'harry', 'josh', 'roger', 'alan', 'frank', 'justin', 'ryan', 'andrew', 'jack', 'matthew', 'peter']
+bm1 = ['alonzo', 'theo', 'jerome', 'leroy', 'torrance', 'darnell', 'lamar', 'lionel', 'lamont', 'malik', 'terrence', 'tyrone']
+
+def find_avg_vector(client, names):
+    words = []
+    words2 = list(client.wv.key_to_index.keys())
+    for a in names:
+        if a in words2:
+            words.append(a)
+    print(words)
+    master_vec = [client.wv.get_vector(words[0])]
+    for item in words[1:]:
+        master_vec += client.wv.get_vector(item)
+    return master_vec / len(words)
+
+def find_race_direction_with_names(client):
+    wm_avg = find_avg_vector(client, wm)
+    bm_avg = find_avg_vector(client, bm)
+    ww_avg = find_avg_vector(client, ww)
+    bw_avg = find_avg_vector(client, bw)
+    """Finds and returns a 'race direction'."""
+    # pairs = [
+    #     (wm_avg, bm_avg),
+    #     (ww_avg, bw_avg)
+    # ]
+    pairs = zip(wm1, bm1)
+
+    # Creates a numpy array which is just n (no.of pairs) normalised vectors
+    # of he-she (or equivalent)
+    m = []
+    for wof, wom in pairs:
+        #m.append((_np_normalize(wof[0])) - (_np_normalize(wom[0])))
+        m.append((_np_normalize(client.wv.get_vector(wof))) - (_np_normalize(client.wv.get_vector(wom))))
+
+    m = np.array(m)
+    # the next three lines are just a PCA
+    # Creates a covariance matrix of M transpose
+    m = np.cov(m.T)
+    # eigenvalues and eigenvectors of M
+    evals, evecs = np.linalg.eig(m)
+
+    return _np_normalize(np.real(evecs[:, np.argmax(evals)]))
+
 
 def find_race_direction(embed, indices, client):
     """Finds and returns a 'race direction'."""
@@ -112,8 +161,8 @@ def find_race_direction(embed, indices, client):
     # Creates a numpy array which is just n (no.of pairs) normalised vectors
     # of he-she (or equivalent)
     m = []
-    for wf, wm in pairs:
-        m.append((_np_normalize(client.wv.get_vector(wf))) - (_np_normalize(client.wv.get_vector(wm))))
+    for wof, wom in pairs:
+        m.append((_np_normalize(client.wv.get_vector(wof))) - (_np_normalize(client.wv.get_vector(wom))))
     m = np.array(m)
 
     # the next three lines are just a PCA
@@ -121,7 +170,7 @@ def find_race_direction(embed, indices, client):
     m = np.cov(m.T)
     # eigenvalues and eigenvectors of M
     evals, evecs = np.linalg.eig(m)
-    
+
     return _np_normalize(np.real(evecs[:, np.argmax(evals)]))
 
 def race_scores(client, race_direction, gender_direction):
@@ -185,7 +234,10 @@ def main(client, analogies):
 
     # Using the embeddings, find the gender vector.
     gender_direction = find_gender_direction(embed, indices, client)
-    #print("gender direction: %s" % str(gender_direction.flatten()))
+    print("gender direction: %s" % str(gender_direction.flatten()))
+
+    rd_names = find_race_direction_with_names(client)
+    print("race direction: %s" % str(rd_names.flatten()))
 
     # Using the embeddings, find the race vector.
     race_direction = find_race_direction(embed, indices, client)

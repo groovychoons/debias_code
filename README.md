@@ -15,6 +15,7 @@ Clone the repo somewhere.
 
 ```bash
 python debias
+```
 
 ## What are we doing?
 

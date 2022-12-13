@@ -20,11 +20,11 @@ python debias
 ## What are we doing?
 
 This code trains a Word2Vec model on the WMT news dataset of 314 million sentences. 
-The training includes terms for identifying the race subspace, such as "black_woman", "african_american" and "black_teenager". [load_model file](code/load_model_script.py)
+The training includes terms for identifying the race subspace, such as "black_woman", "african_american" and "black_teenager". [load_model file](debias/load_model_script.py)
 
-Once the model is trained, we find both the race and gender subspaces using the difference between various pairs, such as he -> she and white_man -> black_man, and then computing their principle components. [find_space file](code/find_space_kv.py)
+Once the model is trained, we find both the race and gender subspaces using the difference between various pairs, such as he -> she and white_man -> black_man, and then computing their principle components. [find_space file](debias/find_space_kv.py)
 
-We also calculate the race subspace by using the difference between name pairs (e.g. adam -> tyrone) to compare to the phrasal model of calculating the race subspace. [[find_space file](code/find_space_kv.py)
+We also calculate the race subspace by using the difference between name pairs (e.g. adam -> tyrone) to compare to the phrasal model of calculating the race subspace. [[find_space file](debias/find_space_kv.py)
 
 We then see how occupations score within these subspaces and plot it on a graph. [graph_plot](Graph_plot.ipynb)
 
